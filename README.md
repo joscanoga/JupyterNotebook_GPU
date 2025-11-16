@@ -48,20 +48,18 @@ docker compose up -d
 
 ### Habilitar Soporte para GPU (Opcional)
 
-Si tienes una GPU NVIDIA y deseas utilizarla, descomenta las siguientes líneas en el archivo `docker-compose.yml`:
+El archivo [`docker-compose.yml`](docker-compose.yml) ya tiene habilitado el soporte para GPU NVIDIA. Si no tienes una GPU NVIDIA o no deseas utilizarla, comenta las siguientes líneas en el archivo:
 
 ```yaml
 # Descomentar en el caso de tener GPU nvidia en el equipo y desee usarla
     deploy:
       resources:
-        reservaciones:
+        reservations:
           devices:
             - driver: nvidia
               count: all
               capabilities: [gpu]
 ```
-
-Después de descomentar las líneas, guarda el archivo `docker-compose.yml` y vuelve a construir e iniciar el contenedor con `docker compose up --build`.
 
 ### 2. Acceder a JupyterLab
 
@@ -70,6 +68,8 @@ Una vez que el contenedor esté en funcionamiento, abre tu navegador web y naveg
 [http://localhost:8888](http://localhost:8888)
 
 Verás la interfaz de JupyterLab, donde podrás crear, editar y ejecutar tus notebooks.
+
+**Nota de Seguridad**: La configuración actual deshabilita la autenticación por token y contraseña para facilitar el desarrollo local. **No uses esta configuración en entornos de producción o accesibles públicamente**.
 
 ### 3. Detener el Contenedor
 
@@ -81,15 +81,69 @@ Si el contenedor se está ejecutando en segundo plano, o desde una nueva termina
 docker compose down
 ```
 
-Este comando detendrá y eliminará el contenedor, pero tus archivos de notebook no se perderán gracias al volumen que hemos configurado.
+Este comando detendrá y eliminará el contenedor, pero tus archivos no se perderán gracias a los volúmenes que hemos configurado.
 
-## Estructura de Archivos
+## Estructura del Proyecto
 
--   **`Dockerfile`**: Contiene las instrucciones para construir la imagen de Docker. Define la imagen base de NVIDIA, instala Python y las dependencias del sistema, y copia los archivos necesarios.
--   **`docker-compose.yml`**: Orquesta la ejecución del contenedor. Define el servicio de JupyterLab, mapea los puertos, configura el acceso a la GPU y gestiona los volúmenes para la persistencia de datos.
--   **`requirements.txt`**: Lista todas las librerías de Python que se instalarán en el entorno. Esto facilita la gestión de dependencias.
--   **`README.md`**: Este archivo, con toda la documentación que necesitas.
+```
+.
+├── data/               # Datos de entrada para tus proyectos
+├── Notebooks/          # Notebooks de Jupyter
+├── results/            # Resultados de análisis y modelos
+├── SRC/                # Código fuente Python
+├── tests/              # Tests unitarios
+├── Dockerfile          # Definición de la imagen Docker
+├── docker-compose.yml  # Orquestación del contenedor
+├── requirements.txt    # Dependencias de Python
+└── README.md           # Esta documentación
+```
+
+### Archivos Principales
+
+-   **[`Dockerfile`](Dockerfile)**: Contiene las instrucciones para construir la imagen de Docker. Define la imagen base de NVIDIA con CUDA 12.1.1 y cuDNN 8, instala Python 3.10 y las dependencias del sistema necesarias.
+-   **[`docker-compose.yml`](docker-compose.yml)**: Orquesta la ejecución del contenedor. Define el servicio de JupyterLab, mapea el puerto 8888, configura el acceso a la GPU y gestiona los volúmenes para la persistencia de datos.
+-   **[`requirements.txt`](requirements.txt)**: Lista todas las librerías de Python que se instalarán en el entorno, incluyendo TensorFlow, PyTorch, Pandas, Scikit-learn, y muchas otras herramientas para ciencia de datos.
 
 ## Persistencia de Datos
 
-El archivo `docker-compose.yml` está configurado para montar el directorio  (`./notebooks`) en la ruta `/app` dentro del contenedor. Esto significa que cualquier archivo o notebook que crees o modifiques dentro de JupyterLab se guardará directamente en esta carpeta en tu máquina local.
+El archivo [`docker-compose.yml`](docker-compose.yml) está configurado para montar los siguientes directorios locales dentro del contenedor:
+
+- `./data` → `/app/data`: Datos de entrada
+- `./Notebooks` → `/app/Notebooks`: Notebooks de Jupyter
+- `./results` → `/app/results`: Resultados y modelos
+- `./SRC` → `/app/SRC`: Código fuente Python
+- `./tests` → `/app/tests`: Tests unitarios
+
+Cualquier archivo que crees o modifiques dentro de JupyterLab en estas rutas se guardará automáticamente en los directorios correspondientes de tu máquina local.
+
+## Verificar el Uso de GPU
+
+Si has habilitado el soporte para GPU, puedes verificar que TensorFlow y PyTorch detecten correctamente tu GPU ejecutando los siguientes comandos en una celda de notebook:
+
+**Para TensorFlow:**
+```python
+import tensorflow as tf
+print("GPUs disponibles:", tf.config.list_physical_devices('GPU'))
+```
+
+**Para PyTorch:**
+```python
+import torch
+print("CUDA disponible:", torch.cuda.is_available())
+print("Dispositivos CUDA:", torch.cuda.device_count())
+```
+
+## Solución de Problemas
+
+### El contenedor no inicia
+- Verifica que Docker Desktop esté ejecutándose
+- Asegúrate de que el puerto 8888 no esté ocupado por otra aplicación
+
+### La GPU no es detectada
+- Verifica que NVIDIA Container Toolkit esté instalado correctamente
+- Ejecuta `nvidia-smi` en tu terminal para confirmar que los drivers funcionan
+- Asegúrate de que las líneas de soporte GPU en [`docker-compose.yml`](docker-compose.yml) no estén comentadas
+
+### Errores de memoria en GPU
+- Reduce el tamaño del batch en tus modelos
+- Cierra otros programas que puedan estar usando la GPU
